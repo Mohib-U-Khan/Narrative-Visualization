@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Technology Adoption in American Households</title>
+  <title>Technology Adoption Trends in American Homes</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/d3-annotation@2.5.1/dist/d3-annotation.min.js"></script>
   <style>
@@ -31,7 +31,7 @@
 </head>
 <body>
   <h1 style="text-align: center; padding: 20px; margin: 0;">
-    Technology Adoption in American Homes
+    Technology Adoption Trends in American Homes
   </h1>
   <div id="vis"></div>
   <div id="controls">
@@ -52,6 +52,7 @@
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     let currentScene = 0;
+    let lockedTech = null;
     const scenes = ["scene1", "scene2", "scene3", "explore"];
 
     const params = {
@@ -75,7 +76,7 @@
       const scene = scenes[currentScene];
 
       if (scene === "scene1") {
-        params.selectedTechs = ["Electric power", "Refrigerator", "Microwave", "Smartphone usage", "Social media usage"];
+        params.selectedTechs = ["Electric power", "Refrigerator", "Microwave", "Smartphone usage", "Social media usage", "Internet"];
       } else if (scene === "scene2") {
         params.selectedTechs = ["Landline", "Cable TV", "Videocassette recorder"];
       } else if (scene === "scene3") {
@@ -89,6 +90,7 @@
 
     function drawLineChart(data) {
       const filtered = data.filter(d => params.selectedTechs.includes(d.Entity));
+      const scene = scenes[currentScene];
 
       const x = d3.scaleLinear()
         .domain(d3.extent(filtered, d => d.Year))
@@ -123,15 +125,167 @@
 
       svg.selectAll(".line")
         .data(techs)
+        .join(
+          enter => enter.append("path")
+            .attr("class", "line")
+            .attr("fill", "none")
+            .attr("stroke", d => color(d[0]))
+            .attr("stroke-width", 2)
+            .attr("d", ([key, values]) => {
+              return d3.line()
+                .x(d => x(d.Year))
+                .y(d => y(d["Adoption (%)"]))
+                (values);
+            })
+            .each(function() {
+              const totalLength = this.getTotalLength();
+
+              d3.select(this)
+                .attr("stroke-dasharray", `${totalLength} ${totalLength}`)
+                .attr("stroke-dashoffset", totalLength)
+                .transition()
+                .duration(1500)
+                .ease(d3.easePolyInOut.exponent(3))
+                .attr("stroke-dashoffset", 0);
+            })
+            .on("click", function(event, d) {
+              const label = d[0];
+
+              if (lockedTech === label) {
+                lockedTech = null;
+
+                svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
+                d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
+                d3.selectAll(".legend-circle").style("opacity", 1);
+              } else {
+                lockedTech = label;
+
+                svg.selectAll(".line").style("opacity", 0.1).attr("stroke-width", 2);
+                d3.selectAll(".legend-text").style("opacity", 0.2).style("font-weight", "normal");
+                d3.selectAll(".legend-circle").style("opacity", 0.2);
+
+                svg.selectAll(".line")
+                  .filter(([key]) => key === label)
+                  .style("opacity", 1)
+                  .attr("stroke-width", 4)
+                  .raise();
+
+                const className = `.legend-${label.replace(/\s+/g, '-')}`;
+                d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
+              }
+
+              event.stopPropagation();
+            })
+
+            .on("mouseover", function(event, d) {
+              // Fade all other lines
+              if (lockedTech !== null) return;
+              svg.selectAll(".line")
+                .transition().duration(1)
+                .style("opacity", 0.1);
+
+              // Highlight this one
+              d3.select(this)
+                .transition().duration(1)
+                .style("opacity", 1)
+                .attr("stroke-width", 4);
+            })
+            .on("mouseout", function(event, d) {
+              // Reset all lines
+              if (lockedTech !== null) return;
+              svg.selectAll(".line")
+                .transition().duration(1)
+                .style("opacity", 1)
+                .attr("stroke-width", 2);
+            }),
+
+          update => update
+            .attr("stroke", d => color(d[0]))
+            .attr("d", ([key, values]) => {
+              return d3.line()
+                .x(d => x(d.Year))
+                .y(d => y(d["Adoption (%)"]))
+                (values);
+            }),
+
+          exit => exit.remove()
+        );
+
+      svg.selectAll(".hover-target")
+        .data(techs)
         .join("path")
+        .attr("class", "hover-target")
         .attr("fill", "none")
-        .attr("stroke", d => color(d[0]))
-        .attr("stroke-width", 2)
+        .attr("stroke", "transparent")
+        .attr("stroke-width", 15)
         .attr("d", ([key, values]) => {
           return d3.line()
             .x(d => x(d.Year))
             .y(d => y(d["Adoption (%)"]))
             (values);
+        })
+        .on("mouseover", function(event, d) {
+          if (lockedTech !== null) return;
+          if (scene !== "explore") return;
+          svg.selectAll(".line")
+            .style("opacity", 0.1);
+
+          svg.selectAll(".line")
+            .filter(([key]) => key === d[0])
+            .style("opacity", 1)
+            .attr("stroke-width", 4);
+
+          const className = `.legend-${d[0].replace(/\s+/g, '-')}`;
+
+          d3.selectAll(".legend-text").style("opacity", 0.2);
+          d3.selectAll(".legend-circle").style("opacity", 0.2);
+
+          d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
+        })
+        .on("mouseout", function(event, d) {
+          if (lockedTech !== null) return;
+          if (scene !== "explore") return;
+          svg.selectAll(".line")
+            .style("opacity", 1)
+            .attr("stroke-width", 2);
+
+          d3.selectAll(".legend-text")
+            .style("opacity", 1)
+            .style("font-weight", "normal");
+
+          d3.selectAll(".legend-circle")
+            .style("opacity", 1);
+        })
+        .on("click", function(event, d) {
+          const label = d[0];
+          if (scene !== "explore") return;
+
+          if (lockedTech === label) {
+            // Unlock
+            lockedTech = null;
+
+            svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
+            d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
+            d3.selectAll(".legend-circle").style("opacity", 1);
+          } else {
+            // Lock this tech
+            lockedTech = label;
+
+            svg.selectAll(".line").style("opacity", 0.1).attr("stroke-width", 2);
+            d3.selectAll(".legend-text").style("opacity", 0.2).style("font-weight", "normal");
+            d3.selectAll(".legend-circle").style("opacity", 0.2);
+
+            svg.selectAll(".line")
+              .filter(([key]) => key === label)
+              .style("opacity", 1)
+              .attr("stroke-width", 4)
+              .raise();
+
+            const className = `.legend-${label.replace(/\s+/g, '-')}`;
+            d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
+          }
+
+          event.stopPropagation(); // Prevents body click from firing immediately
         });
 
       svg.selectAll(".label")
@@ -150,22 +304,96 @@
         const legend = svg.append("g")
             .attr("transform", `translate(${width + 20}, 0)`); 
 
-        Array.from(techs.entries()).forEach(([key], i) => {
-            const yOffset = i * 20;
+      Array.from(techs.entries()).forEach(([key], i) => {
+          const yOffset = i * 20;
 
-            legend.append("circle")
-                .attr("cx", 0)
-                .attr("cy", yOffset)
-                .attr("r", 6)
-                .style("fill", color(key));
+          legend.append("circle")
+              .attr("cx", 0)
+              .attr("cy", yOffset)
+              .attr("r", 6)
+              .attr("class", `legend-circle legend-${key.replace(/\s+/g, '-')}`)
+              .style("fill", color(key));
 
-            legend.append("text")
-                .attr("x", 10)
-                .attr("y", yOffset)
-                .text(key)
-                .style("font-size", "12px")
-                .attr("alignment-baseline", "middle");
-            });
+          legend.append("text")
+              .attr("x", 10)
+              .attr("y", yOffset)
+              .attr("class", `legend-text legend-${key.replace(/\s+/g, '-')}`)
+              .text(key)
+              .style("font-size", "12px")
+              .attr("alignment-baseline", "middle");
+          });
+      
+      legend.selectAll(".legend-text, .legend-circle")
+        .on("mouseover", function(event, d) {
+          if (lockedTech !== null) return;
+          if (scene !== "explore") return;
+          const label = d3.select(this).text() || d3.select(this).attr("class").match(/legend-([^\s]+)/)[1].replace(/-/g, ' ');
+
+          svg.selectAll(".line").style("opacity", 0.1);
+          d3.selectAll(".legend-text").style("opacity", 0.2).style("font-weight", "normal");
+          d3.selectAll(".legend-circle").style("opacity", 0.2);
+
+          svg.selectAll(".line")
+            .filter(([key]) => key === label)
+            .style("opacity", 1)
+            .attr("stroke-width", 4)
+            .raise();
+
+          const className = `.legend-${label.replace(/\s+/g, '-')}`;
+          d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
+        })
+        .on("mouseout", function() {
+          if (lockedTech !== null) return;
+          if (scene !== "explore") return;
+          svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
+          d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
+          d3.selectAll(".legend-circle").style("opacity", 1);
+        })
+        .on("click", function(event, d) {
+          const label = d3.select(this).text() || d3.select(this).attr("class").match(/legend-([^\s]+)/)[1].replace(/-/g, ' ');
+          if (scene !== "explore") return;
+
+          if (lockedTech === label) {
+            // Unlock if already locked
+            lockedTech = null;
+
+            // Reset visuals
+            svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
+            d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
+            d3.selectAll(".legend-circle").style("opacity", 1);
+          } else {
+            // Lock new item
+            lockedTech = label;
+
+            // Dim all
+            svg.selectAll(".line").style("opacity", 0.1).attr("stroke-width", 2);
+            d3.selectAll(".legend-text").style("opacity", 0.2).style("font-weight", "normal");
+            d3.selectAll(".legend-circle").style("opacity", 0.2);
+
+            // Highlight selected
+            svg.selectAll(".line")
+              .filter(([key]) => key === label)
+              .style("opacity", 1)
+              .attr("stroke-width", 4)
+              .raise();
+
+            const className = `.legend-${label.replace(/\s+/g, '-')}`;
+            d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
+          }
+
+          event.stopPropagation();
+        });
+
+        d3.select("body").on("click", function() {
+          if (lockedTech !== null) {
+            lockedTech = null;
+
+            // Reset visuals
+            svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
+            d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
+            d3.selectAll(".legend-circle").style("opacity", 1);
+          }
+        });
     }
 
     d3.select("#next").on("click", () => {
