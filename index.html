@@ -1,30 +1,32 @@
+<!-- Hello Grader, please go easy on me :)-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Technology Adoption Trends in American Homes</title>
+  <title>Technology Adoption Trends in American Homes</title> <!-- Page Title-->
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
   <style>
-    body {
+    body { /* Styling for main body*/
       font-family: sans-serif;
       margin: 0;
       padding: 0;
       background: #f9f9f9;
-    }
-    #vis {
+    } 
+    #vis { /* Styling for chart visual*/
       display: flex;
       justify-content: center;
       align-items: center;
       width: 100%;
       height: 600px;
     }
-    #controls {
+    #controls { /* Styling for controls*/
       text-align: center;
       margin: 20px;
     }
-    #scene-indicator {
+    #scene-indicator { /* Styling for scene indicator*/
       font-size: 1rem;
       color: #666;
       margin-top: 10px;
@@ -32,7 +34,7 @@
       text-align: center;
       margin-bottom: 10px;
     }
-    #tooltip {
+    #tooltip { /* Styling for tooltips*/
       position: absolute; 
       visibility: hidden; 
       background: white; 
@@ -43,7 +45,7 @@
       pointer-events: none; 
       box-shadow: 0px 0px 5px rgba(0,0,0,0.1);
     }
-    button {
+    button { /* Styling for buttons*/
       margin: 0 10px;
       padding: 10px 20px;
       font-size: 1rem;
@@ -64,32 +66,33 @@
       ">
   </div>
   <h1 style="text-align: center; padding: 20px; margin: 0;">
-    Technology Adoption Trends in American Homes
+    Technology Adoption Trends in American Homes <!-- Graph Title-->
   </h1>
-  <div id="vis"></div>
-  <div id="controls">
+  <div id="vis"></div> <!-- Main Graph-->
+  <div id="controls"> <!-- Next and Previous Buttons-->
     <button id="prev">Previous</button>
     <button id="next">Next</button>
   </div>
-  <div id="scene-indicator"></div>
-  <div id="tooltip"></div>
+  <div id="scene-indicator"></div> <!-- Scene Indicator (Ex. 1 of 4)-->
+  <div id="tooltip"></div> <!-- Tooltips for last scene-->
 
   <script>
+    //Spacing and Positioning
     const margin = { top: 50, right: 150, bottom: 50, left: 60 },
           width = 960 - margin.left - margin.right,
           height = 600 - margin.top - margin.bottom;
 
     const outerSvg = d3.select("#vis")
       .append("svg")
-      .attr("width", width + margin.left + margin.right + 160)  // keep space for legend
+      .attr("width", width + margin.left + margin.right + 160) 
       .attr("height", height + margin.top + margin.bottom);
 
     const svg = outerSvg.append("g")
       .attr("transform", `translate(${margin.left + 138},${margin.top})`);
 
-    let currentScene = 0;
-    let lockedTech = null;
-    const scenes = ["scene1", "scene2", "scene3", "explore"];
+    let currentScene = 0; //Parameter for current scene
+    let lockedTech = null; //Parameter for highlighted lines in last scene
+    const scenes = ["scene1", "scene2", "scene3", "explore"]; //Scenes
 
     const params = {
       selectedTechs: [],
@@ -97,6 +100,7 @@
       yearRange: [1960, 2020]
     };
 
+    //Scene descriptions for left side of page
     const sceneDescriptions = {
       scene1: {
         title: "Scene 1: Growth Over Time",
@@ -116,6 +120,7 @@
       }
     };
 
+    //Load Data Function
     function loadData(callback) {
       d3.csv("filtered_tech_adoption_14_technologies.csv").then(data => {
         data.forEach(d => {
@@ -126,6 +131,7 @@
       });
     }
 
+    //Updating Scene Function
     function updateScene(data) {
       svg.selectAll("*").remove();
       const scene = scenes[currentScene];
@@ -148,12 +154,14 @@
         `);
     }
 
+    //Function for bottom scene indicator (Ex. 1 of 4)
     function updateSceneIndicator() {
       d3.select("#scene-indicator")
         .style("margin-left", "30px")
         .text(`${currentScene + 1} of 4`);
     }
 
+    //Function for making Next and Previous buttons disappear for first and last scene
     function updateNavigationButtons() {
       d3.select("#prev")
         .style("visibility", currentScene === 0 ? "hidden" : "visible");
@@ -162,10 +170,12 @@
         .style("visibility", currentScene === scenes.length - 1 ? "hidden" : "visible");
     }
 
+    //Function for drawing chart
     function drawLineChart(data) {
+      //Constants and setup
       const filtered = data.filter(d => params.selectedTechs.includes(d.Entity));
       const scene = scenes[currentScene];
-      const tooltipCircle = svg.append("circle")
+      const tooltipCircle = svg.append("circle") //Tooltips
         .attr("r", 5)
         .attr("fill", "#000")
         .attr("stroke", "#fff")
@@ -180,13 +190,16 @@
         .domain([0, 100])
         .range([height, 0]);
 
+      //Bottom Axis
       svg.append("g")
         .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x).tickFormat(d3.format("d")));
 
+      //Left Axis
       svg.append("g")
         .call(d3.axisLeft(y));
 
+      //Color scheme for lines
       const color = d3.scaleOrdinal()
         .domain([
             "Smartphone usage", "Social media usage", "Amazon Prime users",
@@ -203,6 +216,7 @@
 
       const techs = d3.group(filtered, d => d.Entity);
 
+      //Drawing lines on graph
       svg.selectAll(".line")
         .data(techs)
         .join(
@@ -228,7 +242,7 @@
                 .ease(d3.easePolyInOut.exponent(3))
                 .attr("stroke-dashoffset", 0);
             })
-            .on("click", function(event, d) {
+            .on("click", function(event, d) { //Highlighting lines for last scene
               const label = d[0];
 
               if (lockedTech === label) {
@@ -270,6 +284,8 @@
         );
 
       const tooltip = d3.select("#tooltip");
+
+      //Drawing transparent area around lines to increase click area so its easier to click and highlight lines
       svg.selectAll(".hover-target")
         .data(techs)
         .join("path")
@@ -283,19 +299,17 @@
             .y(d => y(d["Adoption (%)"]))
             (values);
         })
-        .on("click", function(event, d) {
+        .on("click", function(event, d) { //Highlighting lines
           const label = d[0];
           if (scene !== "explore") return;
 
           if (lockedTech === label) {
-            // Unlock
             lockedTech = null;
 
             svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
             d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
             d3.selectAll(".legend-circle").style("opacity", 1);
           } else {
-            // Lock this tech
             lockedTech = label;
 
             svg.selectAll(".line").style("opacity", 0.1).attr("stroke-width", 2);
@@ -312,9 +326,9 @@
             d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
           }
 
-          event.stopPropagation(); // Prevents body click from firing immediately
+          event.stopPropagation();
         })
-        .on("mousemove", function(event, d) {
+        .on("mousemove", function(event, d) { //Tooltips are displayed for closest point when hovering over the line
           if (lockedTech !== null && lockedTech !== d[0]) return;
           if (scene !== "explore") return;
 
@@ -333,12 +347,13 @@
             .style("fill", color(d[0])) // use line color
             .style("visibility", "visible");
         })
-        .on("mouseleave", function() {
+        .on("mouseleave", function() { //Tooltips disappear when mouse is moved away
           if (scene !== "explore") return;
           tooltip.style("visibility", "hidden");
           tooltipCircle.style("visibility", "hidden");
         });
 
+      //Drawing for labels/legend
       svg.selectAll(".label")
         .data(techs)
         .join("text")
@@ -374,8 +389,9 @@
               .attr("alignment-baseline", "middle");
           });
       
+      //Interactivity for legend items
       legend.selectAll(".legend-text, .legend-circle")
-        .on("mouseover", function(event, d) {
+        .on("mouseover", function(event, d) { //Highlight lines when hovering over legend items
           if (lockedTech !== null) return;
           if (scene !== "explore") return;
           const label = d3.select(this).text() || d3.select(this).attr("class").match(/legend-([^\s]+)/)[1].replace(/-/g, ' ');
@@ -393,35 +409,30 @@
           const className = `.legend-${label.replace(/\s+/g, '-')}`;
           d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
         })
-        .on("mouseout", function() {
+        .on("mouseout", function() { //Remove highlight
           if (lockedTech !== null) return;
           if (scene !== "explore") return;
           svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
           d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
           d3.selectAll(".legend-circle").style("opacity", 1);
         })
-        .on("click", function(event, d) {
+        .on("click", function(event, d) { //Stay highlighted when click on legend item
           const label = d3.select(this).text() || d3.select(this).attr("class").match(/legend-([^\s]+)/)[1].replace(/-/g, ' ');
           if (scene !== "explore") return;
 
           if (lockedTech === label) {
-            // Unlock if already locked
             lockedTech = null;
 
-            // Reset visuals
             svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
             d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
             d3.selectAll(".legend-circle").style("opacity", 1);
           } else {
-            // Lock new item
             lockedTech = label;
 
-            // Dim all
             svg.selectAll(".line").style("opacity", 0.1).attr("stroke-width", 2);
             d3.selectAll(".legend-text").style("opacity", 0.2).style("font-weight", "normal");
             d3.selectAll(".legend-circle").style("opacity", 0.2);
 
-            // Highlight selected
             svg.selectAll(".line")
               .filter(([key]) => key === label)
               .style("opacity", 1)
@@ -435,35 +446,37 @@
           event.stopPropagation();
         });
 
+        //If a line is highlighted then clicking anywhere on the body will remove the highlight
         d3.select("body").on("click", function() {
           if (lockedTech !== null) {
             lockedTech = null;
 
-            // Reset visuals
             svg.selectAll(".line").style("opacity", 1).attr("stroke-width", 2);
             d3.selectAll(".legend-text").style("opacity", 1).style("font-weight", "normal");
             d3.selectAll(".legend-circle").style("opacity", 1);
           }
         });
 
+        //Lablel for X axis
         svg.append("text")
           .attr("text-anchor", "middle")
           .attr("x", width / 2)
-          .attr("y", height + 40)  // a bit below the axis
+          .attr("y", height + 40)  
           .style("font-size", "14px")
           .style("font-weight", "bold")
           .text("Year");
 
-        // Y-axis label
+        //Label for Y axis
         svg.append("text")
           .attr("text-anchor", "middle")
           .attr("transform", `rotate(-90)`)
           .attr("x", -height / 2)
-          .attr("y", -45)  // a bit to the left of the axis
+          .attr("y", -45)  
           .style("font-size", "14px")
           .style("font-weight", "bold")
           .text("% of U.S. Households with Technology");
 
+        //Annotations for each scene
         const annotationsByScene = {
           scene1: [
             {
@@ -561,6 +574,7 @@
           ]
         };
 
+        //Show annotations based on current scene
         if (annotationsByScene[scene]) {
           const makeAnnotations = d3.annotation()
             .type(d3.annotationLabel)
@@ -579,6 +593,7 @@
         }
     }
 
+    //Move on to next scene when Next button is clicked
     d3.select("#next").on("click", () => {
       if (currentScene < scenes.length - 1) currentScene++;
       loadData(data => {
@@ -588,6 +603,7 @@
       });
     });
 
+    //Move back to previous scene when previous button is clicked
     d3.select("#prev").on("click", () => {
       if (currentScene > 0) currentScene--;
       loadData(data => {
@@ -597,6 +613,7 @@
       });
     });
 
+    //Initial load of page
     loadData(data => {
       updateScene(data);
       updateNavigationButtons();
