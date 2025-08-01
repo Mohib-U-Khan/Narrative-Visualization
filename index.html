@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Technology Adoption Trends in American Homes</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://unpkg.com/d3-annotation@2.5.1/dist/d3-annotation.min.js"></script>
+  <script src="https://unpkg.com/d3-svg-annotation@2.5.1/d3-annotation.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -14,13 +14,34 @@
       background: #f9f9f9;
     }
     #vis {
-      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       width: 100%;
       height: 600px;
     }
     #controls {
       text-align: center;
       margin: 20px;
+    }
+    #scene-indicator {
+      font-size: 1rem;
+      color: #666;
+      margin-top: 10px;
+      font-weight: 500;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    #tooltip {
+      position: absolute; 
+      visibility: hidden; 
+      background: white; 
+      border: 1px solid #ccc; 
+      padding: 6px 10px; 
+      border-radius: 4px; 
+      font-size: 0.9rem; 
+      pointer-events: none; 
+      box-shadow: 0px 0px 5px rgba(0,0,0,0.1);
     }
     button {
       margin: 0 10px;
@@ -30,6 +51,18 @@
   </style>
 </head>
 <body>
+  <div id="scene-description"
+      style="
+        position: absolute;
+        left: 40px;
+        top: 120px;
+        width: 320px;
+        font-family: sans-serif;
+        font-size: 18px;
+        line-height: 1.9;
+        color: #222;
+      ">
+  </div>
   <h1 style="text-align: center; padding: 20px; margin: 0;">
     Technology Adoption Trends in American Homes
   </h1>
@@ -38,18 +71,21 @@
     <button id="prev">Previous</button>
     <button id="next">Next</button>
   </div>
+  <div id="scene-indicator"></div>
+  <div id="tooltip"></div>
 
   <script>
     const margin = { top: 50, right: 150, bottom: 50, left: 60 },
           width = 960 - margin.left - margin.right,
           height = 600 - margin.top - margin.bottom;
 
-    const svg = d3.select("#vis")
+    const outerSvg = d3.select("#vis")
       .append("svg")
-      .attr("width", width + margin.left + margin.right + 160)
-      .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+      .attr("width", width + margin.left + margin.right + 160)  // keep space for legend
+      .attr("height", height + margin.top + margin.bottom);
+
+    const svg = outerSvg.append("g")
+      .attr("transform", `translate(${margin.left + 138},${margin.top})`);
 
     let currentScene = 0;
     let lockedTech = null;
@@ -59,6 +95,25 @@
       selectedTechs: [],
       highlightedTechs: [],
       yearRange: [1960, 2020]
+    };
+
+    const sceneDescriptions = {
+      scene1: {
+        title: "Scene 1: Growth Over Time",
+        body: "Notice how different technologies like electricity and microwaves adopted at vastly different speeds across decades. Earlier innovations took decades to reach mass adoption, while newer ones like smartphones spread rapidly."
+      },
+      scene2: {
+        title: "Scene 2: Rise and Fall",
+        body: "Some technologies like landlines and cable TV dominated for years before declining. This scene highlights the lifecycle of now-declining technologies."
+      },
+      scene3: {
+        title: "Scene 3: Disruption",
+        body: "Disruptive tech such as smartphones and streaming reshaped how we communicate and consume media, often replacing older tech like landlines and cable."
+      },
+      explore: {
+        title: "Now Explore!",
+        body: "This is your turn to explore freely. Hover over the legend or click on lines to isolate technologies and make your own comparisons."
+      }
     };
 
     function loadData(callback) {
@@ -86,11 +141,36 @@
       }
 
       drawLineChart(data);
+      const desc = sceneDescriptions[scene];
+        d3.select("#scene-description").html(`
+          <h3 style="margin-bottom: 12px; font-size: 22px;">${desc.title}</h3>
+          <p style="margin-top: 0; font-size: 18px; line-height: 1.9;">${desc.body}</p>
+        `);
+    }
+
+    function updateSceneIndicator() {
+      d3.select("#scene-indicator")
+        .style("margin-left", "30px")
+        .text(`${currentScene + 1} of 4`);
+    }
+
+    function updateNavigationButtons() {
+      d3.select("#prev")
+        .style("visibility", currentScene === 0 ? "hidden" : "visible");
+
+      d3.select("#next")
+        .style("visibility", currentScene === scenes.length - 1 ? "hidden" : "visible");
     }
 
     function drawLineChart(data) {
       const filtered = data.filter(d => params.selectedTechs.includes(d.Entity));
       const scene = scenes[currentScene];
+      const tooltipCircle = svg.append("circle")
+        .attr("r", 5)
+        .attr("fill", "#000")
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 1.5)
+        .style("visibility", "hidden");
 
       const x = d3.scaleLinear()
         .domain(d3.extent(filtered, d => d.Year))
@@ -175,28 +255,6 @@
               }
 
               event.stopPropagation();
-            })
-
-            .on("mouseover", function(event, d) {
-              // Fade all other lines
-              if (lockedTech !== null) return;
-              svg.selectAll(".line")
-                .transition().duration(1)
-                .style("opacity", 0.1);
-
-              // Highlight this one
-              d3.select(this)
-                .transition().duration(1)
-                .style("opacity", 1)
-                .attr("stroke-width", 4);
-            })
-            .on("mouseout", function(event, d) {
-              // Reset all lines
-              if (lockedTech !== null) return;
-              svg.selectAll(".line")
-                .transition().duration(1)
-                .style("opacity", 1)
-                .attr("stroke-width", 2);
             }),
 
           update => update
@@ -211,6 +269,7 @@
           exit => exit.remove()
         );
 
+      const tooltip = d3.select("#tooltip");
       svg.selectAll(".hover-target")
         .data(techs)
         .join("path")
@@ -223,38 +282,6 @@
             .x(d => x(d.Year))
             .y(d => y(d["Adoption (%)"]))
             (values);
-        })
-        .on("mouseover", function(event, d) {
-          if (lockedTech !== null) return;
-          if (scene !== "explore") return;
-          svg.selectAll(".line")
-            .style("opacity", 0.1);
-
-          svg.selectAll(".line")
-            .filter(([key]) => key === d[0])
-            .style("opacity", 1)
-            .attr("stroke-width", 4);
-
-          const className = `.legend-${d[0].replace(/\s+/g, '-')}`;
-
-          d3.selectAll(".legend-text").style("opacity", 0.2);
-          d3.selectAll(".legend-circle").style("opacity", 0.2);
-
-          d3.selectAll(className).style("opacity", 1).style("font-weight", "bold");
-        })
-        .on("mouseout", function(event, d) {
-          if (lockedTech !== null) return;
-          if (scene !== "explore") return;
-          svg.selectAll(".line")
-            .style("opacity", 1)
-            .attr("stroke-width", 2);
-
-          d3.selectAll(".legend-text")
-            .style("opacity", 1)
-            .style("font-weight", "normal");
-
-          d3.selectAll(".legend-circle")
-            .style("opacity", 1);
         })
         .on("click", function(event, d) {
           const label = d[0];
@@ -286,6 +313,30 @@
           }
 
           event.stopPropagation(); // Prevents body click from firing immediately
+        })
+        .on("mousemove", function(event, d) {
+          if (lockedTech !== null && lockedTech !== d[0]) return;
+          if (scene !== "explore") return;
+
+          const [xPos, yPos] = d3.pointer(event);
+          const nearest = d3.least(d[1], p => Math.abs(x(p.Year) - xPos));
+
+          if (!nearest) return;
+
+          tooltip.style("visibility", "visible")
+                .style("left", `${event.pageX + 12}px`)
+                .style("top", `${event.pageY - 28}px`)
+                .html(`<strong>${d[0]}</strong><br>Year: ${nearest.Year}<br>Adoption: ${nearest["Adoption (%)"]}%`);
+          tooltipCircle
+            .attr("cx", x(nearest.Year))
+            .attr("cy", y(nearest["Adoption (%)"]))
+            .style("fill", color(d[0])) // use line color
+            .style("visibility", "visible");
+        })
+        .on("mouseleave", function() {
+          if (scene !== "explore") return;
+          tooltip.style("visibility", "hidden");
+          tooltipCircle.style("visibility", "hidden");
         });
 
       svg.selectAll(".label")
@@ -394,19 +445,163 @@
             d3.selectAll(".legend-circle").style("opacity", 1);
           }
         });
+
+        svg.append("text")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", height + 40)  // a bit below the axis
+          .style("font-size", "14px")
+          .style("font-weight", "bold")
+          .text("Year");
+
+        // Y-axis label
+        svg.append("text")
+          .attr("text-anchor", "middle")
+          .attr("transform", `rotate(-90)`)
+          .attr("x", -height / 2)
+          .attr("y", -45)  // a bit to the left of the axis
+          .style("font-size", "14px")
+          .style("font-weight", "bold")
+          .text("% of U.S. Households with Technology");
+
+        const annotationsByScene = {
+          scene1: [
+            {
+              note: {
+                title: "Slow Adoption",
+                label: "Electric power took decades to reach mass adoption (1910-1955).",
+                wrap: 150
+              },
+              x: x(1930),
+              y: y(70),
+              dx: -50,
+              dy: -30
+            },
+            {
+              note: {
+                title: "Faster Growth",
+                label: "Microwaves became common much faster than earlier tech (1970-1995).",
+                wrap: 150
+              },
+              x: x(1986),
+              y: y(65),
+              dx: -60,
+              dy: -40
+            },
+            {
+              note: {
+                title: "Rapid Adoption",
+                label: "Smartphones and social media spread in less than 10 years (2008-2016).",
+                wrap: 150
+              },
+              x: x(2015),
+              y: y(55),
+              dx: 80,
+              dy: 40
+            }
+          ],
+          scene2: [
+            {
+              note: {
+                title: "Peak and Decline",
+                label: "Landlines reached peak adoption (~95%) around 2000, but usage has dropped significantly since.",
+                wrap: 160
+              },
+              x: x(2000),
+              y: y(95),
+              dx: -400,
+              dy: 0
+            },
+            {
+              note: {
+                title: "Slowing Growth",
+                label: "Cable TV peaked around the early 2000s before household adoption began to decline.",
+                wrap: 150
+              },
+              x: x(1997),
+              y: y(62),
+              dx: 0,
+              dy: 50
+            },
+            {
+              note: {
+                title: "Short Lifespan",
+                label: "Videocassette recorders were adopted rapidly in the 1980s but quickly faded by the 2000s.",
+                wrap: 160
+              },
+              x: x(2002),
+              y: y(87),
+              dx: 170,
+              dy: 30
+            }
+          ],
+          scene3: [
+            {
+              note: {
+                title: "Outpaced by Innovation",
+                label: "Smartphones have overtaken landlines as primary communication tools (2010-2020).",
+                wrap: 160
+              },
+              x: x(2013),
+              y: y(57),
+              dx: -90,
+              dy: 90
+            },
+            {
+              note: {
+                title: "The Rise of Streaming",
+                label: "Streaming services like Amazon Prime have surged since 2014, reflecting a major shift to on-demand media (2014–2020).",
+                wrap: 150
+              },
+              x: x(2017),
+              y: y(25),
+              dx: 95,
+              dy: -20
+            }
+          ]
+        };
+
+        if (annotationsByScene[scene]) {
+          const makeAnnotations = d3.annotation()
+            .type(d3.annotationLabel)
+            .annotations(annotationsByScene[scene]);
+
+          const annotationGroup = svg.append("g")
+            .attr("class", "annotation-group")
+            .style("opacity", 0)
+            .call(makeAnnotations);
+
+          annotationGroup
+            .transition()
+            .delay(1600)
+            .duration(800)
+            .style("opacity", 1);
+        }
     }
 
     d3.select("#next").on("click", () => {
       if (currentScene < scenes.length - 1) currentScene++;
-      loadData(updateScene);
+      loadData(data => {
+        updateScene(data);
+        updateNavigationButtons();
+        updateSceneIndicator();  
+      });
     });
 
     d3.select("#prev").on("click", () => {
       if (currentScene > 0) currentScene--;
-      loadData(updateScene);
+      loadData(data => {
+        updateScene(data);
+        updateNavigationButtons();
+        updateSceneIndicator();  
+      });
     });
 
-    loadData(updateScene);
+    loadData(data => {
+      updateScene(data);
+      updateNavigationButtons();
+      updateSceneIndicator();  
+    });
   </script>
 </body>
 </html>
